@@ -124,8 +124,6 @@ DATABASE_URL=postgresql://postgres:ваш_пароль@localhost:5432/dostyk
 
 ```bash
 cd Door_dostyk/backend
-conda activate dostyk
-pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
