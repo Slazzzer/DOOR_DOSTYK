@@ -1,15 +1,19 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.product import Product
+from app.services.product_service import query_products
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 
 
 @router.get("/")
-def get_products(db: Session = Depends(get_db)):
-    return db.query(Product).all()
+def get_products(
+    search: str | None = Query(None, description="Подстрока для поиска по названию товара"),
+    db: Session = Depends(get_db),
+):
+    return query_products(db, search).all()
 
 
 @router.get("/{product_id}")
