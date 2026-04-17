@@ -4,8 +4,8 @@ const api = axios.create({
   baseURL: "/api",
 });
 
-export function getProducts() {
-  return api.get("/products/");
+export function getProducts(params = {}) {
+  return api.get("/products/", { params });
 }
 
 export function createOrder(data) {

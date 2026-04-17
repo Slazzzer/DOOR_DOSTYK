@@ -14,6 +14,17 @@
 
     <h3>Позиции заказа</h3>
 
+    <div class="field">
+      <label>Поиск товара в каталоге</label>
+      <input
+        v-model="productSearch"
+        type="search"
+        placeholder="Начните вводить название"
+        autocomplete="off"
+        @input="onSearchInput"
+      />
+    </div>
+
     <div v-for="(item, i) in items" :key="i" class="row">
       <select v-model="item.oi_product_id" required>
         <option value="" disabled>Выберите товар</option>
@@ -48,6 +59,8 @@ export default {
     return {
       clientName: "",
       clientPhone: "",
+      productSearch: "",
+      searchDebounce: null,
       items: [{ oi_product_id: "", oi_quantity: 1 }],
       products: [],
       loading: false,
@@ -56,10 +69,19 @@ export default {
     };
   },
   async created() {
-    const res = await getProducts();
-    this.products = res.data;
+    await this.fetchProducts();
   },
   methods: {
+    onSearchInput() {
+      clearTimeout(this.searchDebounce);
+      this.searchDebounce = setTimeout(() => this.fetchProducts(), 320);
+    },
+    async fetchProducts() {
+      const res = await getProducts({
+        search: this.productSearch.trim() || undefined,
+      });
+      this.products = res.data;
+    },
     addItem() {
       this.items.push({ oi_product_id: "", oi_quantity: 1 });
     },
@@ -77,8 +99,7 @@ export default {
         this.clientName = "";
         this.clientPhone = "";
         this.items = [{ oi_product_id: "", oi_quantity: 1 }];
-        const updated = await getProducts();
-        this.products = updated.data;
+        await this.fetchProducts();
       } catch (e) {
         this.error = e.response?.data?.detail || "Ошибка при оформлении заказа";
       } finally {
