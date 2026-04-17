@@ -93,6 +93,7 @@ export default {
       result: null,
       error: null,
       resultHideTimer: null,
+      errorHideTimer: null,
     };
   },
   async created() {
@@ -113,6 +114,7 @@ export default {
   beforeUnmount() {
     document.removeEventListener("mousedown", this._pickerDocClose);
     clearTimeout(this.resultHideTimer);
+    clearTimeout(this.errorHideTimer);
     clearTimeout(this.searchDebounce);
   },
   methods: {
@@ -155,6 +157,13 @@ export default {
         this.resultHideTimer = null;
       }, 3000);
     },
+    scheduleErrorHide() {
+      clearTimeout(this.errorHideTimer);
+      this.errorHideTimer = setTimeout(() => {
+        this.error = null;
+        this.errorHideTimer = null;
+      }, 3000);
+    },
     formatSubmitError(detail) {
       if (detail == null) return "Ошибка при оформлении заказа";
       if (typeof detail === "string") return detail;
@@ -170,12 +179,15 @@ export default {
       for (const it of this.items) {
         if (it.oi_product_id === "" || it.oi_product_id == null) {
           this.error = "Выберите товар в каждой позиции заказа";
+          this.scheduleErrorHide();
           return;
         }
       }
       this.loading = true;
       clearTimeout(this.resultHideTimer);
+      clearTimeout(this.errorHideTimer);
       this.resultHideTimer = null;
+      this.errorHideTimer = null;
       this.result = null;
       this.error = null;
       try {
@@ -193,6 +205,7 @@ export default {
         this.$emit("orders-changed");
       } catch (e) {
         this.error = this.formatSubmitError(e.response?.data?.detail);
+        this.scheduleErrorHide();
       } finally {
         this.loading = false;
       }

@@ -68,6 +68,7 @@ export default {
       result: null,
       error: null,
       resultHideTimer: null,
+      errorHideTimer: null,
     };
   },
   async created() {
@@ -89,6 +90,7 @@ export default {
   beforeUnmount() {
     document.removeEventListener("mousedown", this._pickerDocClose);
     clearTimeout(this.resultHideTimer);
+    clearTimeout(this.errorHideTimer);
   },
   methods: {
     addItem() {
@@ -129,16 +131,26 @@ export default {
         this.resultHideTimer = null;
       }, 3000);
     },
+    scheduleErrorHide() {
+      clearTimeout(this.errorHideTimer);
+      this.errorHideTimer = setTimeout(() => {
+        this.error = null;
+        this.errorHideTimer = null;
+      }, 3000);
+    },
     async submit() {
       for (const it of this.items) {
         if (it.si_product_id === "" || it.si_product_id == null) {
           this.error = "Выберите товар в каждой позиции приёмки";
+          this.scheduleErrorHide();
           return;
         }
       }
       this.loading = true;
       clearTimeout(this.resultHideTimer);
+      clearTimeout(this.errorHideTimer);
       this.resultHideTimer = null;
+      this.errorHideTimer = null;
       this.result = null;
       this.error = null;
       try {
@@ -154,6 +166,7 @@ export default {
         this.products = updated.data;
       } catch (e) {
         this.error = this.formatSubmitError(e.response?.data?.detail);
+        this.scheduleErrorHide();
       } finally {
         this.loading = false;
       }
