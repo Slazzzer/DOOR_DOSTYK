@@ -79,6 +79,7 @@ export default {
         this.items = [{ oi_product_id: "", oi_quantity: 1 }];
         const updated = await getProducts();
         this.products = updated.data;
+        this.$emit("orders-changed");
       } catch (e) {
         this.error = e.response?.data?.detail || "Ошибка при оформлении заказа";
       } finally {

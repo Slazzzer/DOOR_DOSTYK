@@ -32,7 +32,7 @@ Door_dostyk/
 │       ├── database.py               # Подключение к PostgreSQL
 │       ├── api/
 │       │   ├── products.py           # GET /api/products, GET /api/products/{id}
-│       │   ├── orders.py             # POST /api/orders
+│       │   ├── orders.py             # GET /api/orders, POST /api/orders
 │       │   └── shipments.py          # POST /api/shipments
 │       ├── models/
 │       │   ├── product.py            # Модель товара
@@ -42,7 +42,7 @@ Door_dostyk/
 │       │   ├── order.py              # Pydantic-схемы заказа
 │       │   └── shipment.py           # Pydantic-схемы приёмки
 │       ├── services/
-│       │   ├── order_service.py      # Бизнес-логика оформления заказа
+│       │   ├── order_service.py      # Журнал заказов, оформление заказа
 │       │   └── shipment_service.py   # Бизнес-логика приёмки товара
 │       └── mocks/
 │           ├── accounting_mock.py    # Заглушка 1С:Бухгалтерия
@@ -61,6 +61,7 @@ Door_dostyk/
         │   └── ShipmentsView.vue     # Страница приёмки товара
         └── components/
             ├── OrderForm.vue         # Форма оформления заказа
+            ├── OrdersList.vue        # Журнал заказов
             └── ShipmentForm.vue      # Форма приёмки товара
 ```
 
@@ -82,6 +83,7 @@ Door_dostyk/
 |---|---|---|
 | `GET` | `/api/products/` | Список всех товаров |
 | `GET` | `/api/products/{id}` | Товар по ID |
+| `GET` | `/api/orders/` | Список заказов с позициями (журнал) |
 | `POST` | `/api/orders/` | Оформить заказ клиента |
 | `POST` | `/api/shipments/` | Оформить приёмку товара |
 
