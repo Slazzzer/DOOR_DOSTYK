@@ -52,7 +52,7 @@
               :class="{ selected: item.oi_product_id === p.prod_id }"
               @mousedown.prevent="selectProduct(i, p.prod_id)"
             >
-              {{ p.prod_name }} — {{ p.prod_price }} руб. (ост. {{ p.prod_quantity }})
+              {{ p.prod_name }} - {{ p.prod_price }} руб. (ост. {{ p.prod_quantity }})
             </li>
           </template>
         </ul>
@@ -145,7 +145,7 @@ export default {
       if (id === "" || id == null) return "Выберите товар";
       const p = this.products.find((x) => x.prod_id === id);
       return p
-        ? `${p.prod_name} — ${p.prod_price} руб. (ост. ${p.prod_quantity})`
+        ? `${p.prod_name} - ${p.prod_price} руб. (ост. ${p.prod_quantity})`
         : `Товар #${id}`;
     },
     scheduleResultHide() {

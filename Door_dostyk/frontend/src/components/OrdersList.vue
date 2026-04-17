@@ -56,10 +56,18 @@ export default {
         this.loading = false;
       }
     },
+    /** Naive ISO из старых ответов трактуем как UTC (как NOW() в PostgreSQL в Docker). */
+    parseOrderInstant(iso) {
+      if (iso == null || iso === "") return null;
+      const s = String(iso).trim();
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?$/.test(s)) return new Date(s + "Z");
+      return new Date(s);
+    },
     formatDate(iso) {
       if (!iso) return "";
       try {
-        const d = new Date(iso);
+        const d = this.parseOrderInstant(iso);
+        if (Number.isNaN(d.getTime())) return String(iso);
         return d.toLocaleString("ru-RU", {
           timeZone: "Europe/Moscow",
           year: "numeric",

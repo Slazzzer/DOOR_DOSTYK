@@ -1,7 +1,7 @@
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_serializer, field_validator
 
 
 class OrderItemCreate(BaseModel):
@@ -64,3 +64,10 @@ class OrderRead(BaseModel):
     items: list[OrderItemRead]
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("ord_created_at")
+    def serialize_ord_created_at(self, v: datetime) -> str:
+        """TIMESTAMP без таймзоны в БД хранится как UTC; в JSON отдаём с явным UTC."""
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v.isoformat()

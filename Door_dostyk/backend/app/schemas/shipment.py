@@ -1,5 +1,6 @@
-from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
+
+from pydantic import BaseModel, field_serializer
 
 
 class ShipmentItemCreate(BaseModel):
@@ -29,3 +30,9 @@ class ShipmentRead(BaseModel):
     items: list[ShipmentItemRead]
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("shp_created_at")
+    def serialize_shp_created_at(self, v: datetime) -> str:
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v.isoformat()
