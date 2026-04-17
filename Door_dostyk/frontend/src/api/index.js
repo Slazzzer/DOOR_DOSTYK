@@ -8,6 +8,10 @@ export function getProducts(params = {}) {
   return api.get("/products/", { params });
 }
 
+export function getOrders() {
+  return api.get("/orders/");
+}
+
 export function createOrder(data) {
   return api.post("/orders/", data);
 }

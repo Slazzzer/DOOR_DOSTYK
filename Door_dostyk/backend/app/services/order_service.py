@@ -1,11 +1,20 @@
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.product import Product
 from app.models.order import Order, OrderItem
 from app.schemas.order import OrderCreate
 from app.mocks.accounting_mock import send_to_1c
 from app.mocks.email_mock import send_email
+
+
+def list_orders(db: Session) -> list[Order]:
+    return (
+        db.query(Order)
+        .options(joinedload(Order.items))
+        .order_by(Order.ord_created_at.desc())
+        .all()
+    )
 
 
 def create_order(db: Session, data: OrderCreate) -> Order:

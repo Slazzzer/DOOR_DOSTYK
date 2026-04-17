@@ -100,6 +100,7 @@ export default {
         this.clientPhone = "";
         this.items = [{ oi_product_id: "", oi_quantity: 1 }];
         await this.fetchProducts();
+        this.$emit("orders-changed");
       } catch (e) {
         this.error = e.response?.data?.detail || "Ошибка при оформлении заказа";
       } finally {
