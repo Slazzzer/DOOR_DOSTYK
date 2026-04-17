@@ -22,9 +22,14 @@
 
 ## Структура проекта
 
+В корне репозитория также лежит **`docker-compose.yml`** (PostgreSQL, бэкенд, фронт с nginx).
+
 ```
 Door_dostyk/
+├── docker/
+│   └── init-db/                      # SQL для первого запуска контейнера БД
 ├── backend/
+│   ├── Dockerfile
 │   ├── .env                          # Строка подключения к БД (не коммитится)
 │   ├── requirements.txt              # Python-зависимости
 │   └── app/
@@ -48,6 +53,8 @@ Door_dostyk/
 │           ├── accounting_mock.py    # Заглушка 1С:Бухгалтерия
 │           └── email_mock.py         # Заглушка Email-сервиса
 └── frontend/
+    ├── Dockerfile
+    ├── nginx-docker.conf             # Прокси /api → бэкенд внутри Compose
     ├── index.html
     ├── package.json
     ├── vite.config.js
@@ -142,8 +149,28 @@ npm run dev
 
 Фронтенд запустится на `http://localhost:5173`.
 
+### 6. Запуск через Docker Compose
+
+Нужны [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) или Docker Engine с плагином Compose.
+
+Из **корня репозитория**, где лежит `docker-compose.yml`:
+
+```bash
+docker compose up --build
+```
+
+| Сервис | URL / доступ |
+|--------|----------------|
+| Веб-приложение (Vue через nginx) | [http://localhost:8080](http://localhost:8080) — запросы к `/api` проксируются в бэкенд |
+| FastAPI / Swagger | [http://localhost:8000/docs](http://localhost:8000/docs) |
+| PostgreSQL | хост `localhost`, порт `5432`, БД `dostyk`, пользователь `postgres`, пароль `postgres` |
+
+При **первом** запуске контейнера БД выполняется `Door_dostyk/docker/init-db/01-schema.sql` (таблицы и несколько товаров). Чтобы полностью сбросить данные и пересоздать БД: `docker compose down -v`, затем снова `docker compose up --build`.
+
+Остановка: `Ctrl+C` в терминале или `docker compose down`.
+
 ## Как пользоваться
 
-1. Открыть `http://localhost:5173`
+1. Открыть приложение: при локальном запуске — `http://localhost:5173`, при Docker — `http://localhost:8080`
 2. **Оформление заказа** — выбрать товары из выпадающего списка, указать количество, ввести ФИО и телефон клиента, нажать "Оформить заказ". Остатки на складе уменьшатся автоматически. В консоли бэкенда появятся логи моков (1С + Email).
 3. **Приёмка товара** — указать поставщика, выбрать товары и количество, нажать "Принять товар". Остатки на складе увеличатся автоматически. В консоли бэкенда появится лог мока Email.
