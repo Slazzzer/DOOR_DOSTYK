@@ -31,7 +31,10 @@ Door_dostyk/
 ├── backend/
 │   ├── Dockerfile
 │   ├── .env                          # Строка подключения к БД (не коммитится)
-│   ├── requirements.txt              # Python-зависимости
+│   ├── requirements.txt              # Python-зависимости (в т.ч. pytest)
+│   ├── pytest.ini                    # Настройка pytest (pythonpath, каталог tests)
+│   ├── tests/
+│   │   └── test_order_schema.py      # Unit-тесты схем заказа (Pydantic)
 │   └── app/
 │       ├── main.py                   # Точка входа FastAPI
 │       ├── database.py               # Подключение к PostgreSQL
@@ -171,6 +174,26 @@ docker compose up --build
 При **первом** запуске контейнера БД выполняется `Door_dostyk/docker/init-db/01-schema.sql` (таблицы и несколько товаров). Чтобы полностью сбросить данные и пересоздать БД: `docker compose down -v`, затем снова `docker compose up --build`.
 
 Остановка: `Ctrl+C` в терминале или `docker compose down`.
+
+## Unit-тесты (backend)
+
+Покрываются **схемы заказа** в `app/schemas/order.py` (без поднятия БД и HTTP-сервера):
+
+| Тест | Что проверяется |
+|------|------------------|
+| `test_order_create_rejects_invalid_phone` | Некорректный телефон (например `++++++`) не проходит валидацию `OrderCreate`. |
+| `test_order_create_normalizes_valid_russian_mobile` | Ввод вроде `8 (920) 538-66-74` нормализуется к виду `+79205386674`. |
+| `test_order_read_serializes_naive_created_at_as_utc` | Наивное время `ord_created_at` в `OrderRead` при выгрузке в JSON получает суффикс `+00:00` (явный UTC для корректного отображения на фронте). |
+
+Запуск из терминала (нужен установленный Python и зависимости из `requirements.txt`):
+
+```bash
+cd Door_dostyk/backend
+pip install -r requirements.txt
+pytest tests/ -v
+```
+
+Краткий прогон без подробного вывода: `pytest tests/`.
 
 ## Как пользоваться
 
