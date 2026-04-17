@@ -8,8 +8,14 @@
     </div>
 
     <div class="field">
-      <label>Телефон</label>
-      <input v-model="clientPhone" type="text" placeholder="+7-900-123-45-67" />
+      <label>Телефон (необязательно)</label>
+      <input
+        v-model="clientPhone"
+        type="tel"
+        inputmode="tel"
+        autocomplete="tel"
+        placeholder="+79205386674"
+      />
     </div>
 
     <h3>Позиции заказа</h3>
@@ -85,14 +91,25 @@ export default {
     addItem() {
       this.items.push({ oi_product_id: "", oi_quantity: 1 });
     },
+    formatSubmitError(detail) {
+      if (detail == null) return "Ошибка при оформлении заказа";
+      if (typeof detail === "string") return detail;
+      if (Array.isArray(detail)) {
+        const parts = detail
+          .map((x) => (typeof x === "object" && x?.msg ? x.msg : String(x)))
+          .filter(Boolean);
+        return parts.length ? parts.join(" ") : "Ошибка при оформлении заказа";
+      }
+      return "Ошибка при оформлении заказа";
+    },
     async submit() {
       this.loading = true;
       this.result = null;
       this.error = null;
       try {
         const res = await createOrder({
-          ord_client_name: this.clientName,
-          ord_client_phone: this.clientPhone || null,
+          ord_client_name: this.clientName.trim(),
+          ord_client_phone: this.clientPhone.trim() || null,
           items: this.items,
         });
         this.result = res.data;
@@ -102,7 +119,7 @@ export default {
         await this.fetchProducts();
         this.$emit("orders-changed");
       } catch (e) {
-        this.error = e.response?.data?.detail || "Ошибка при оформлении заказа";
+        this.error = this.formatSubmitError(e.response?.data?.detail);
       } finally {
         this.loading = false;
       }
