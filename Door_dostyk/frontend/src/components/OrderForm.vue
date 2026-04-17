@@ -18,7 +18,7 @@
       <select v-model="item.oi_product_id" required>
         <option value="" disabled>Выберите товар</option>
         <option v-for="p in products" :key="p.prod_id" :value="p.prod_id">
-          {{ p.prod_name }} — {{ p.prod_price }} руб. (ост. {{ p.prod_quantity }})
+          {{ p.prod_name }} - {{ p.prod_price }} руб. (ост. {{ p.prod_quantity }})
         </option>
       </select>
       <input v-model.number="item.oi_quantity" type="number" min="1" placeholder="Кол-во" required />
