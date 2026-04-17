@@ -31,15 +31,34 @@
       />
     </div>
 
-    <div v-for="(item, i) in items" :key="i" class="row">
-      <select v-model="item.oi_product_id" required>
-        <option value="" disabled>Выберите товар</option>
-        <option v-for="p in products" :key="p.prod_id" :value="p.prod_id">
-          {{ p.prod_name }} - {{ p.prod_price }} руб. (ост. {{ p.prod_quantity }})
-        </option>
-      </select>
+    <div
+      v-for="(item, i) in items"
+      :key="i"
+      class="row"
+      :class="{ 'row-picker-open': pickerOpenIndex === i }"
+    >
+      <div class="product-picker">
+        <button type="button" class="picker-trigger" @click="togglePicker(i)">
+          {{ pickerLabel(item) }}
+        </button>
+        <ul v-show="pickerOpenIndex === i" class="picker-list" role="listbox">
+          <li v-if="!products.length" class="picker-empty">Нет товаров по запросу</li>
+          <template v-else>
+            <li
+              v-for="p in products"
+              :key="p.prod_id"
+              role="option"
+              class="picker-option"
+              :class="{ selected: item.oi_product_id === p.prod_id }"
+              @mousedown.prevent="selectProduct(i, p.prod_id)"
+            >
+              {{ p.prod_name }} — {{ p.prod_price }} руб. (ост. {{ p.prod_quantity }})
+            </li>
+          </template>
+        </ul>
+      </div>
       <input v-model.number="item.oi_quantity" type="number" min="1" placeholder="Кол-во" required />
-      <button type="button" class="btn-remove" @click="items.splice(i, 1)">✕</button>
+      <button type="button" class="btn-remove" @click="removeRow(i)">✕</button>
     </div>
 
     <button type="button" class="btn-add" @click="addItem">+ Добавить позицию</button>
@@ -67,15 +86,34 @@ export default {
       clientPhone: "",
       productSearch: "",
       searchDebounce: null,
+      pickerOpenIndex: null,
       items: [{ oi_product_id: "", oi_quantity: 1 }],
       products: [],
       loading: false,
       result: null,
       error: null,
+      resultHideTimer: null,
     };
   },
   async created() {
     await this.fetchProducts();
+  },
+  mounted() {
+    this._pickerDocClose = (e) => {
+      if (this.pickerOpenIndex === null) return;
+      const el = this.$el;
+      if (!el) return;
+      for (const p of el.querySelectorAll(".product-picker")) {
+        if (p.contains(e.target)) return;
+      }
+      this.pickerOpenIndex = null;
+    };
+    document.addEventListener("mousedown", this._pickerDocClose);
+  },
+  beforeUnmount() {
+    document.removeEventListener("mousedown", this._pickerDocClose);
+    clearTimeout(this.resultHideTimer);
+    clearTimeout(this.searchDebounce);
   },
   methods: {
     onSearchInput() {
@@ -91,6 +129,32 @@ export default {
     addItem() {
       this.items.push({ oi_product_id: "", oi_quantity: 1 });
     },
+    removeRow(i) {
+      this.pickerOpenIndex = null;
+      this.items.splice(i, 1);
+    },
+    togglePicker(i) {
+      this.pickerOpenIndex = this.pickerOpenIndex === i ? null : i;
+    },
+    selectProduct(rowIndex, prodId) {
+      this.items[rowIndex].oi_product_id = prodId;
+      this.pickerOpenIndex = null;
+    },
+    pickerLabel(item) {
+      const id = item.oi_product_id;
+      if (id === "" || id == null) return "Выберите товар";
+      const p = this.products.find((x) => x.prod_id === id);
+      return p
+        ? `${p.prod_name} — ${p.prod_price} руб. (ост. ${p.prod_quantity})`
+        : `Товар #${id}`;
+    },
+    scheduleResultHide() {
+      clearTimeout(this.resultHideTimer);
+      this.resultHideTimer = setTimeout(() => {
+        this.result = null;
+        this.resultHideTimer = null;
+      }, 3000);
+    },
     formatSubmitError(detail) {
       if (detail == null) return "Ошибка при оформлении заказа";
       if (typeof detail === "string") return detail;
@@ -103,7 +167,15 @@ export default {
       return "Ошибка при оформлении заказа";
     },
     async submit() {
+      for (const it of this.items) {
+        if (it.oi_product_id === "" || it.oi_product_id == null) {
+          this.error = "Выберите товар в каждой позиции заказа";
+          return;
+        }
+      }
       this.loading = true;
+      clearTimeout(this.resultHideTimer);
+      this.resultHideTimer = null;
       this.result = null;
       this.error = null;
       try {
@@ -113,6 +185,7 @@ export default {
           items: this.items,
         });
         this.result = res.data;
+        this.scheduleResultHide();
         this.clientName = "";
         this.clientPhone = "";
         this.items = [{ oi_product_id: "", oi_quantity: 1 }];
@@ -170,15 +243,67 @@ h3 {
   display: flex;
   gap: 10px;
   margin-bottom: 10px;
-  align-items: center;
+  align-items: flex-start;
+  position: relative;
 }
 
-.row select {
+.row-picker-open {
+  z-index: 25;
+}
+
+.product-picker {
+  position: relative;
   flex: 3;
+  min-width: 0;
+}
+
+.picker-trigger {
+  width: 100%;
+  text-align: left;
   padding: 10px 12px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 14px;
+  background: #fff;
+  cursor: pointer;
+  color: #1a1a2e;
+}
+
+.picker-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: min(40vh, 240px);
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  z-index: 30;
+}
+
+.picker-option {
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.picker-option:hover {
+  background: #f3f4f6;
+}
+
+.picker-option.selected {
+  background: #e0ecff;
+}
+
+.picker-empty {
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #6b7280;
 }
 
 .row input {

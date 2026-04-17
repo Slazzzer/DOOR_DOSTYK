@@ -47,18 +47,31 @@ export default {
       loading: false,
       result: null,
       error: null,
+      resultHideTimer: null,
     };
   },
   async created() {
     const res = await getProducts();
     this.products = res.data;
   },
+  beforeUnmount() {
+    clearTimeout(this.resultHideTimer);
+  },
   methods: {
     addItem() {
       this.items.push({ si_product_id: "", si_quantity: 1 });
     },
+    scheduleResultHide() {
+      clearTimeout(this.resultHideTimer);
+      this.resultHideTimer = setTimeout(() => {
+        this.result = null;
+        this.resultHideTimer = null;
+      }, 3000);
+    },
     async submit() {
       this.loading = true;
+      clearTimeout(this.resultHideTimer);
+      this.resultHideTimer = null;
       this.result = null;
       this.error = null;
       try {
@@ -67,6 +80,7 @@ export default {
           items: this.items,
         });
         this.result = res.data;
+        this.scheduleResultHide();
         this.supplierName = "";
         this.items = [{ si_product_id: "", si_quantity: 1 }];
         const updated = await getProducts();

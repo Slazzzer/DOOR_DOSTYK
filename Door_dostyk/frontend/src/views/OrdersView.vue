@@ -10,6 +10,7 @@ import OrderForm from "../components/OrderForm.vue";
 import OrdersList from "../components/OrdersList.vue";
 
 export default {
+  name: "OrdersView",
   components: { OrderForm, OrdersList },
   methods: {
     onOrdersChanged() {
