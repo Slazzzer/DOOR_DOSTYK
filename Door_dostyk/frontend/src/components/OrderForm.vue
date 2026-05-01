@@ -51,7 +51,7 @@
               :class="{ selected: item.oi_product_id === p.prod_id }"
               @mousedown.prevent="selectProduct(i, p.prod_id)"
             >
-              {{ p.prod_name }} — {{ p.prod_price }} руб. (ост. {{ p.prod_quantity }})
+              {{ p.prod_name }} - {{ p.prod_price }} руб. (ост. {{ p.prod_quantity }})
             </li>
           </ul>
         </div>
@@ -63,6 +63,9 @@
           placeholder="Кол-во"
           required
         />
+      </div>
+      <div v-if="lineTotal(item) > 0" class="line-badge">
+        {{ lineTotalLabel(item) }} руб.
       </div>
       <button type="button" class="btn-remove" @click="removeRow(i)">✕</button>
     </div>
@@ -168,7 +171,21 @@ export default {
     },
     pickerLabel(item) {
       const p = this.products.find((x) => x.prod_id === item.oi_product_id);
-      return p ? p.prod_name : "Выберите товар";
+      return p
+        ? `${p.prod_name} - ${p.prod_price} руб. (ост. ${p.prod_quantity})`
+        : "Выберите товар";
+    },
+    lineTotal(item) {
+      const p = this.products.find((x) => x.prod_id === item.oi_product_id);
+      if (!p) return 0;
+      const qty = Number(item.oi_quantity);
+      if (!Number.isFinite(qty) || qty <= 0) return 0;
+      return Number(p.prod_price) * qty;
+    },
+    lineTotalLabel(item) {
+      return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(
+        this.lineTotal(item)
+      );
     },
     addItem() {
       this.items.push({ oi_product_id: "", oi_quantity: 1 });
@@ -346,6 +363,17 @@ h3 { margin: 20px 0 12px; font-size: 16px; color: #555; }
   cursor: pointer;
   padding: 4px 6px;
   flex-shrink: 0;
+}
+
+.line-badge {
+  background: #ffedd5;
+  color: #9a3412;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .btn-add {

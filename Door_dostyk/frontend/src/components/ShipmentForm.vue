@@ -52,6 +52,9 @@
           required
         />
       </div>
+      <div v-if="lineTotal(item) > 0" class="line-badge">
+        {{ lineTotalLabel(item) }} руб.
+      </div>
       <button type="button" class="btn-remove" @click="removeRow(i)">✕</button>
     </div>
 
@@ -61,10 +64,10 @@
       <button type="submit" class="btn-submit" :disabled="loading">
         {{ loading ? "Оформляется..." : "Принять товар" }}
       </button>
-      <div v-if="shipmentTotal > 0" class="total-badge">
+      <div v-if="shipmentTotal > 0 || selectedStockAfterText" class="total-badge">
         Стоимость поставки: {{ shipmentTotalLabel }} руб.
         &nbsp;·&nbsp;
-        На складе станет: {{ projectedTotalStock }} шт.
+        На складе станет: {{ selectedStockAfterText }}
       </div>
     </div>
 
@@ -114,17 +117,25 @@ export default {
         this.shipmentTotal
       );
     },
-    projectedTotalStock() {
-      const currentTotal = this.products.reduce(
-        (s, p) => s + Number(p.prod_quantity || 0),
-        0
-      );
-      const addedTotal = this.items.reduce((s, it) => {
-        if (!it.si_product_id) return s;
+    selectedStockAfterText() {
+      const addedByProductId = new Map();
+      for (const it of this.items) {
+        if (!it.si_product_id) continue;
         const qty = Number(it.si_quantity);
-        return s + (Number.isFinite(qty) && qty > 0 ? qty : 0);
-      }, 0);
-      return currentTotal + addedTotal;
+        if (!Number.isFinite(qty) || qty <= 0) continue;
+        addedByProductId.set(
+          it.si_product_id,
+          (addedByProductId.get(it.si_product_id) || 0) + qty
+        );
+      }
+
+      const parts = [];
+      for (const [productId, addQty] of addedByProductId.entries()) {
+        const p = this.products.find((x) => x.prod_id === productId);
+        if (!p) continue;
+        parts.push(`${p.prod_name}: ${Number(p.prod_quantity) + addQty} шт.`);
+      }
+      return parts.join(" | ");
     },
   },
   async created() {
@@ -159,6 +170,18 @@ export default {
     pickerLabel(item) {
       const p = this.products.find((x) => x.prod_id === item.si_product_id);
       return p ? `${p.prod_name} (ост. ${p.prod_quantity})` : "Выберите товар";
+    },
+    lineTotal(item) {
+      const p = this.products.find((x) => x.prod_id === item.si_product_id);
+      if (!p) return 0;
+      const qty = Number(item.si_quantity);
+      if (!Number.isFinite(qty) || qty <= 0) return 0;
+      return Number(p.prod_price) * qty;
+    },
+    lineTotalLabel(item) {
+      return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(
+        this.lineTotal(item)
+      );
     },
     addItem() {
       this.items.push({ si_product_id: "", si_quantity: 1 });
@@ -331,6 +354,17 @@ h3 { margin: 20px 0 12px; font-size: 16px; color: #555; }
   cursor: pointer;
   padding: 4px 6px;
   flex-shrink: 0;
+}
+
+.line-badge {
+  background: #ffedd5;
+  color: #9a3412;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .btn-add {
