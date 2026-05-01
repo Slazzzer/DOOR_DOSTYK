@@ -20,48 +20,72 @@
 
     <h3>Позиции заказа</h3>
 
-    <div class="field">
-      <label>Поиск товара в каталоге</label>
-      <input
-        v-model="productSearch"
-        type="search"
-        placeholder="Начните вводить название"
-        autocomplete="off"
-        @input="onSearchInput"
-      />
-    </div>
-
     <div
       v-for="(item, i) in items"
-      :key="i"
+      :key="item._uid"
       class="row"
       :class="{ 'row-picker-open': pickerOpenIndex === i }"
     >
       <div class="product-picker">
-        <button type="button" class="picker-trigger" @click="togglePicker(i)">
-          {{ pickerLabel(item) }}
-        </button>
+        <input
+          v-model="item.search"
+          type="search"
+          class="picker-input"
+          placeholder="Начните вводить название товара"
+          autocomplete="off"
+          @focus="openPicker(i)"
+          @input="onSearchInput(i)"
+        />
         <ul v-show="pickerOpenIndex === i" class="picker-list" role="listbox">
-          <li v-if="!products.length" class="picker-empty">Нет товаров по запросу</li>
+          <li v-if="!filteredProducts(item).length" class="picker-empty">
+            Нет товаров по запросу
+          </li>
           <template v-else>
             <li
-              v-for="p in products"
+              v-for="p in filteredProducts(item)"
               :key="p.prod_id"
               role="option"
               class="picker-option"
               :class="{ selected: item.oi_product_id === p.prod_id }"
-              @mousedown.prevent="selectProduct(i, p.prod_id)"
+              @mousedown.prevent="selectProduct(i, p)"
             >
               {{ p.prod_name }} - {{ p.prod_price }} руб. (ост. {{ p.prod_quantity }})
             </li>
           </template>
         </ul>
       </div>
-      <input v-model.number="item.oi_quantity" type="number" min="1" placeholder="Кол-во" required />
-      <button type="button" class="btn-remove" @click="removeRow(i)">✕</button>
+      <input
+        v-model.number="item.oi_quantity"
+        type="number"
+        min="1"
+        class="qty-input"
+        placeholder="Кол-во"
+        required
+      />
+      <div class="cell stock-cell" :class="{ negative: isOverstock(item) }">
+        <span class="cell-label">ост.</span>
+        <span class="cell-value">{{ remainingStockLabel(item) }}</span>
+      </div>
+      <div class="cell total-cell">
+        <span class="cell-label">сумма</span>
+        <span class="cell-value">{{ lineTotalLabel(item) }} руб.</span>
+      </div>
+      <button
+        type="button"
+        class="btn-remove"
+        @click="removeRow(i)"
+        aria-label="Удалить позицию"
+      >
+        ✕
+      </button>
     </div>
 
     <button type="button" class="btn-add" @click="addItem">+ Добавить позицию</button>
+
+    <div class="grand-total">
+      <span>Итого:</span>
+      <strong>{{ grandTotalLabel }} руб.</strong>
+    </div>
 
     <div class="actions">
       <button type="submit" class="btn-submit" :disabled="loading">
@@ -79,15 +103,23 @@
 <script>
 import { getProducts, createOrder } from "../api/index.js";
 
+let _rowSeq = 0;
+function makeItem() {
+  return { _uid: ++_rowSeq, oi_product_id: "", oi_quantity: 1, search: "" };
+}
+
+const moneyFormatter = new Intl.NumberFormat("ru-RU", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
 export default {
   data() {
     return {
       clientName: "",
       clientPhone: "",
-      productSearch: "",
-      searchDebounce: null,
       pickerOpenIndex: null,
-      items: [{ oi_product_id: "", oi_quantity: 1 }],
+      items: [makeItem()],
       products: [],
       loading: false,
       result: null,
@@ -95,6 +127,14 @@ export default {
       resultHideTimer: null,
       errorHideTimer: null,
     };
+  },
+  computed: {
+    grandTotal() {
+      return this.items.reduce((sum, it) => sum + this.lineTotal(it), 0);
+    },
+    grandTotalLabel() {
+      return moneyFormatter.format(this.grandTotal);
+    },
   },
   async created() {
     await this.fetchProducts();
@@ -115,40 +155,70 @@ export default {
     document.removeEventListener("mousedown", this._pickerDocClose);
     clearTimeout(this.resultHideTimer);
     clearTimeout(this.errorHideTimer);
-    clearTimeout(this.searchDebounce);
   },
   methods: {
-    onSearchInput() {
-      clearTimeout(this.searchDebounce);
-      this.searchDebounce = setTimeout(() => this.fetchProducts(), 320);
-    },
     async fetchProducts() {
-      const res = await getProducts({
-        search: this.productSearch.trim() || undefined,
-      });
+      const res = await getProducts();
       this.products = res.data;
     },
+    productOf(item) {
+      if (item.oi_product_id === "" || item.oi_product_id == null) return null;
+      return this.products.find((p) => p.prod_id === item.oi_product_id) || null;
+    },
+    filteredProducts(item) {
+      const term = (item.search || "").trim().toLowerCase();
+      if (!term) return this.products;
+      return this.products.filter((p) =>
+        p.prod_name.toLowerCase().includes(term)
+      );
+    },
+    openPicker(i) {
+      this.pickerOpenIndex = i;
+    },
+    onSearchInput(i) {
+      // любое ручное изменение текста сбрасывает выбранный товар:
+      // подпись и реально выбранный prod_id не должны расходиться
+      this.pickerOpenIndex = i;
+      this.items[i].oi_product_id = "";
+    },
+    selectProduct(i, p) {
+      const it = this.items[i];
+      it.oi_product_id = p.prod_id;
+      it.search = p.prod_name;
+      this.pickerOpenIndex = null;
+    },
     addItem() {
-      this.items.push({ oi_product_id: "", oi_quantity: 1 });
+      this.items.push(makeItem());
     },
     removeRow(i) {
       this.pickerOpenIndex = null;
       this.items.splice(i, 1);
+      if (!this.items.length) this.items.push(makeItem());
     },
-    togglePicker(i) {
-      this.pickerOpenIndex = this.pickerOpenIndex === i ? null : i;
+    quantityOf(item) {
+      const q = Number(item.oi_quantity);
+      return Number.isFinite(q) && q > 0 ? q : 0;
     },
-    selectProduct(rowIndex, prodId) {
-      this.items[rowIndex].oi_product_id = prodId;
-      this.pickerOpenIndex = null;
+    remainingStock(item) {
+      const p = this.productOf(item);
+      if (!p) return null;
+      return p.prod_quantity - this.quantityOf(item);
     },
-    pickerLabel(item) {
-      const id = item.oi_product_id;
-      if (id === "" || id == null) return "Выберите товар";
-      const p = this.products.find((x) => x.prod_id === id);
-      return p
-        ? `${p.prod_name} - ${p.prod_price} руб. (ост. ${p.prod_quantity})`
-        : `Товар #${id}`;
+    remainingStockLabel(item) {
+      const v = this.remainingStock(item);
+      return v == null ? "—" : v;
+    },
+    isOverstock(item) {
+      const v = this.remainingStock(item);
+      return v != null && v < 0;
+    },
+    lineTotal(item) {
+      const p = this.productOf(item);
+      if (!p) return 0;
+      return Number(p.prod_price) * this.quantityOf(item);
+    },
+    lineTotalLabel(item) {
+      return moneyFormatter.format(this.lineTotal(item));
     },
     scheduleResultHide() {
       clearTimeout(this.resultHideTimer);
@@ -191,16 +261,20 @@ export default {
       this.result = null;
       this.error = null;
       try {
-        const res = await createOrder({
+        const payload = {
           ord_client_name: this.clientName.trim(),
           ord_client_phone: this.clientPhone.trim() || null,
-          items: this.items,
-        });
+          items: this.items.map((it) => ({
+            oi_product_id: it.oi_product_id,
+            oi_quantity: it.oi_quantity,
+          })),
+        };
+        const res = await createOrder(payload);
         this.result = res.data;
         this.scheduleResultHide();
         this.clientName = "";
         this.clientPhone = "";
-        this.items = [{ oi_product_id: "", oi_quantity: 1 }];
+        this.items = [makeItem()];
         await this.fetchProducts();
         this.$emit("orders-changed");
       } catch (e) {
@@ -256,7 +330,7 @@ h3 {
   display: flex;
   gap: 10px;
   margin-bottom: 10px;
-  align-items: flex-start;
+  align-items: center;
   position: relative;
 }
 
@@ -270,16 +344,20 @@ h3 {
   min-width: 0;
 }
 
-.picker-trigger {
+.picker-input {
   width: 100%;
-  text-align: left;
   padding: 10px 12px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 14px;
   background: #fff;
-  cursor: pointer;
   color: #1a1a2e;
+}
+
+.picker-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
 .picker-list {
@@ -319,12 +397,51 @@ h3 {
   color: #6b7280;
 }
 
-.row input {
-  flex: 1;
+.qty-input {
+  flex: 0 0 90px;
   padding: 10px 12px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 14px;
+  text-align: center;
+}
+
+.cell {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.cell-label {
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: lowercase;
+}
+
+.cell-value {
+  font-size: 14px;
+  color: #1a1a2e;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-cell {
+  min-width: 64px;
+}
+
+.stock-cell.negative .cell-value {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.total-cell {
+  min-width: 110px;
+}
+
+.total-cell .cell-value {
+  font-weight: 600;
 }
 
 .btn-remove {
@@ -333,6 +450,7 @@ h3 {
   color: #ef4444;
   font-size: 18px;
   cursor: pointer;
+  padding: 4px 6px;
 }
 
 .btn-add {
@@ -344,6 +462,21 @@ h3 {
   cursor: pointer;
   font-size: 14px;
   margin-top: 4px;
+}
+
+.grand-total {
+  margin-top: 20px;
+  padding: 12px 16px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+}
+
+.grand-total strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .actions {
