@@ -20,17 +20,6 @@
 
     <h3>Позиции заказа</h3>
 
-    <div class="field">
-      <label>Поиск товара в каталоге</label>
-      <input
-        v-model="productSearch"
-        type="search"
-        placeholder="Начните вводить название"
-        autocomplete="off"
-        @input="onSearchInput"
-      />
-    </div>
-
     <div
       v-for="(item, i) in items"
       :key="i"
@@ -39,9 +28,15 @@
     >
       <div class="combo">
         <div class="combo-picker">
-          <button type="button" class="combo-trigger" @click="togglePicker(i)">
-            {{ pickerLabel(item) }}
-          </button>
+          <input
+            type="text"
+            class="combo-trigger"
+            :value="comboInputValue(i, item)"
+            placeholder="Начните вводить название"
+            autocomplete="off"
+            @input="onComboInput(i, $event)"
+            @focus="openPicker(i)"
+          />
           <ul v-show="pickerOpenIndex === i" class="picker-list">
             <li v-if="!filteredList.length" class="picker-empty">Нет товаров по запросу</li>
             <li
@@ -162,12 +157,25 @@ export default {
       });
       this.products = res.data;
     },
-    togglePicker(i) {
-      this.pickerOpenIndex = this.pickerOpenIndex === i ? null : i;
+    openPicker(i) {
+      if (this.pickerOpenIndex === i) return;
+      this.pickerOpenIndex = i;
+      const p = this.products.find((x) => x.prod_id === this.items[i].oi_product_id);
+      this.productSearch = p ? p.prod_name : "";
+    },
+    onComboInput(i, e) {
+      this.pickerOpenIndex = i;
+      this.productSearch = e.target.value;
+      this.onSearchInput();
+    },
+    comboInputValue(i, item) {
+      if (this.pickerOpenIndex === i) return this.productSearch;
+      return this.pickerLabel(item) === "Выберите товар" ? "" : this.pickerLabel(item);
     },
     selectProduct(i, prodId) {
       this.items[i].oi_product_id = prodId;
       this.pickerOpenIndex = null;
+      this.productSearch = "";
     },
     pickerLabel(item) {
       const p = this.products.find((x) => x.prod_id === item.oi_product_id);

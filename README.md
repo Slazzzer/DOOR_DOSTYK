@@ -123,7 +123,16 @@ cd DOOR_DOSTYK
 
 ### 2. Создать базу данных
 
-Открыть pgAdmin 4, создать базу `dostyk`, затем в Query Tool выполнить SQL-скрипт создания 5 таблиц (products, orders, order_items, shipments, shipment_items), индексов и тестовых данных.
+Схема и тестовые данные — в одном файле: `Door_dostyk/docker/init-db/01-schema.sql` (5 таблиц, индексы, начальный каталог).
+
+**Локальный PostgreSQL** (без Docker):
+
+```bash
+createdb -U postgres dostyk
+psql -U postgres -d dostyk -f Door_dostyk/docker/init-db/01-schema.sql
+```
+
+При запуске через **Docker Compose** (раздел 6) этот скрипт выполняется автоматически при первом старте контейнера `db`.
 
 ### 3. Настроить переменные окружения
 

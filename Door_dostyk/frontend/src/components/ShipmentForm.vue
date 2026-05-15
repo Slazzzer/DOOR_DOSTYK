@@ -9,16 +9,6 @@
 
     <h3>Позиции приёмки</h3>
 
-    <div class="field">
-      <label>Поиск товара</label>
-      <input
-        v-model="productSearch"
-        type="search"
-        placeholder="Начните вводить название"
-        autocomplete="off"
-      />
-    </div>
-
     <div
       v-for="(item, i) in items"
       :key="i"
@@ -27,9 +17,15 @@
     >
       <div class="combo">
         <div class="combo-picker">
-          <button type="button" class="combo-trigger" @click="togglePicker(i)">
-            {{ pickerLabel(item) }}
-          </button>
+          <input
+            type="text"
+            class="combo-trigger"
+            :value="comboInputValue(i, item)"
+            placeholder="Начните вводить название"
+            autocomplete="off"
+            @input="onComboInput(i, $event)"
+            @focus="openPicker(i)"
+          />
           <ul v-show="pickerOpenIndex === i" class="picker-list">
             <li v-if="!filteredList.length" class="picker-empty">Нет товаров по запросу</li>
             <li
@@ -64,11 +60,13 @@
       <button type="submit" class="btn-submit" :disabled="loading">
         {{ loading ? "Оформляется..." : "Принять товар" }}
       </button>
-      <div v-if="shipmentTotal > 0 || selectedStockAfterText" class="total-badge">
+      <div v-if="shipmentTotal > 0" class="total-badge">
         Стоимость поставки: {{ shipmentTotalLabel }} руб.
-        &nbsp;·&nbsp;
-        На складе станет: {{ selectedStockAfterText }}
       </div>
+    </div>
+
+    <div v-if="selectedStockAfterText" class="stock-summary">
+      На складе станет: {{ selectedStockAfterText }}
     </div>
 
     <div v-if="result" class="result success">
@@ -86,6 +84,7 @@ export default {
     return {
       supplierName: "",
       productSearch: "",
+      searchDebounce: null,
       pickerOpenIndex: null,
       items: [{ si_product_id: "", si_quantity: 1 }],
       products: [],
@@ -139,8 +138,7 @@ export default {
     },
   },
   async created() {
-    const res = await getProducts();
-    this.products = res.data;
+    await this.fetchProducts();
   },
   mounted() {
     this._docClose = (e) => {
@@ -158,14 +156,38 @@ export default {
     document.removeEventListener("mousedown", this._docClose);
     clearTimeout(this.resultHideTimer);
     clearTimeout(this.errorHideTimer);
+    clearTimeout(this.searchDebounce);
   },
   methods: {
-    togglePicker(i) {
-      this.pickerOpenIndex = this.pickerOpenIndex === i ? null : i;
+    onSearchInput() {
+      clearTimeout(this.searchDebounce);
+      this.searchDebounce = setTimeout(() => this.fetchProducts(), 320);
+    },
+    async fetchProducts() {
+      const res = await getProducts({
+        search: this.productSearch.trim() || undefined,
+      });
+      this.products = res.data;
+    },
+    openPicker(i) {
+      if (this.pickerOpenIndex === i) return;
+      this.pickerOpenIndex = i;
+      const p = this.products.find((x) => x.prod_id === this.items[i].si_product_id);
+      this.productSearch = p ? p.prod_name : "";
+    },
+    onComboInput(i, e) {
+      this.pickerOpenIndex = i;
+      this.productSearch = e.target.value;
+      this.onSearchInput();
+    },
+    comboInputValue(i, item) {
+      if (this.pickerOpenIndex === i) return this.productSearch;
+      return this.pickerLabel(item) === "Выберите товар" ? "" : this.pickerLabel(item);
     },
     selectProduct(i, prodId) {
       this.items[i].si_product_id = prodId;
       this.pickerOpenIndex = null;
+      this.productSearch = "";
     },
     pickerLabel(item) {
       const p = this.products.find((x) => x.prod_id === item.si_product_id);
@@ -231,8 +253,7 @@ export default {
         this.supplierName = "";
         this.productSearch = "";
         this.items = [{ si_product_id: "", si_quantity: 1 }];
-        const updated = await getProducts();
-        this.products = updated.data;
+        await this.fetchProducts();
       } catch (e) {
         this.error = this.formatSubmitError(e.response?.data?.detail);
         this.scheduleErrorHide();
@@ -300,12 +321,22 @@ h3 { margin: 20px 0 12px; font-size: 16px; color: #555; }
   border-radius: 8px 0 0 8px;
   font-size: 14px;
   color: #1a1a2e;
-  cursor: pointer;
+  cursor: text;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .combo-trigger:hover { background: #f9fafb; }
+
+.stock-summary {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
 
 .combo-qty {
   flex: 0 0 72px;
