@@ -4,7 +4,7 @@
 
     <div class="field">
       <label>ФИО клиента</label>
-      <input v-model="clientName" type="text" placeholder="Иванов Сергей Петрович" required />
+      <input v-model="clientName" type="text" placeholder="Иванов Иван Иванович" required />
     </div>
 
     <div class="field">
@@ -14,7 +14,7 @@
         type="tel"
         inputmode="tel"
         autocomplete="tel"
-        placeholder="+79205386674"
+        placeholder="+79998887777"
       />
     </div>
 
