@@ -4,7 +4,7 @@
 
     <div class="field">
       <label>Поставщик</label>
-      <input v-model="supplierName" type="text" placeholder='ООО "Тмыв Денег"' required />
+      <input v-model="supplierName" type="text" placeholder='ООО "тмыв денег"' required />
     </div>
 
     <h3>Позиции приёмки</h3>
